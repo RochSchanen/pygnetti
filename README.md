@@ -1,0 +1,3 @@
+README
+
+# Magnetic Field Calculator
