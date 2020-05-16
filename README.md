@@ -1,3 +1,4 @@
 README
 
-# Magnetic Field Calculator
+Magnetic Field Calculator
+---
