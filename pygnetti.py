@@ -7,91 +7,99 @@
 
 # /todo: turn loops into array computations
 
+from postscript import *
+
 # numpy: https://numpy.org/
 # float type is float64 by default <=> double
-from numpy import pi, sqrt, cos, linspace, square
-from numpy import empty_like as empty
+from numpy import pi, sqrt, cos, square
+# from numpy import linspace
+# from numpy import empty_like as empty
 
 # scipy: https://scipy.org/
-from scipy.constants import mu_0
+# from scipy.constants import mu_0
+# we assume that mu_0 is 4*pi*1E-7
 
-# loop axis is set along oz
-# r, h: radius [m], position along z [m]
-# current is set at 1A
-# magnetic units are S.I.
-class loop:
+_LAST = -1
 
-    def __init__(self, R):
-        self.R = R
+# the loop axis is aligned with oz
+# the current is 1A by default
+# magnetic units are in mm and µT
+# radius is the bore of the coil
+# layers are assumed to be compact
+# the wire diameter is derived from
+# the height and the number of turns
+# turns alternates between n and n-1
+# remember: no coil is perfectly wound
+# experience shows that this model
+# can't be too far from real coils
+# output some results to eps files
+class coil:
+
+    def __init__(self, radius, height, turns, layers):
+        self.geometry = radius, height, turns, layers
         return
 
-    # Single point calculation
-    # for checking future
-    # optimisations
-    def getpoint(
-            self,      # loop instance
-            X = 0.0,     # position radius [m]
-            H = 0.0,     # position height [m]
-            n = 1000): # intervals for integrals
-        # get geometry
-        R = self.R
-        # compute constants
-        c = square(X)+square(H)+square(R)
-        # beta
-        b = sqrt(c*c*c)
-        # alpha
-        a = 2.0*X*R/b
-        # angle interval
-        dt = 2*pi/n
-        # accumulators  
+    # separate I1, I2 integration
+    # to allow for speed optimisation
+    def getI1I2(self,
+            alpha = 0.0,   # alpha
+            n = 1000):     # intervals
         i1, i2 = 0.0, 0.0
-        # angle theta
-        t = 0.0
+        t, dt  = 0.0, 2*pi/n
         for i in range(n):
-            print(f'{i:03d}',end=' - ')
-            print(f'{t:+18f}',end=' - ')
-            c = cos(t)      ;print(f'c : {c :+.18f}',end=' ')
-            m = 1.0-a*c     ;print(f'm : {m :+.18f}',end=' ')
-            d = sqrt(m*m*m) ;print(f'd : {d :+.18f}',end=' ')
-            i1 += c/d       ;print(f'i1: {i1:+.18f}',end=' ')
-            i2 += 1.0/d     ;print(f'i2: {i2:+.18f}',end=' ')
+            c = cos(t)
+            m = 1.0-alpha*c
+            d = sqrt(m*m*m)
+            i1 += c/d
+            i2 += 1.0/d
             t  += dt
-            print()
-        # integrals value
-        I1, I2 = dt*i1, dt*i2
-        bx, bz = H*R*I1/b, R/b*(R*I2-X*I1)
-        # scale to S.I. units
-        Bx, Bz = bx*mu_0/4.0/pi, bz*mu_0/4.0/pi
-        # return Bx, Bz
+        return i1*dt, i2*dt
+
+    # Single point calculation
+    # no optimisatiom yet
+    def getLoop(self,
+            x = 0.0,    # position radius [mm]
+            h = 0.0):   # position height [mm]
+        R, H, T, L  = self.geometry
+        m = square(x)+square(h)+square(R)
+        b = sqrt(m*m*m) # beta
+        a = 2.0*x*R/b   # alpha
+        I1, I2 = self.getI1I2(a)
+        bx, bz = h*R*I1/b, R/b*(R*I2-x*I1)
+        return bx*1E2, bz*1E2
+
+    # Single point calculation
+    # not optimisation yet
+    def getCoil(self,
+            x = 0.0,    # position radius [mm]
+            h = 0.0):   # position height [mm]
+        # constant
+        f = sqrt(3.0)/2.0
+        # get geometry
+        R, H, T, L  = self.geometry
+        # wire diameter
+        d = H/T
+        # coil width
+        l = d+(L-1)*d*f
+        psOpen()
+        psAxis()
+        psSquare(+R + l/2, 0, l, H, 'right')        
+        psSquare(-R - l/2, 0, l, H, 'left')        
+        # loop over radiuses and positions
+        rl, zl, n, Bx, Bz = [], [], 0, 0.0, 0.0
+        for j in range(L):
+            n = j%2 # oddness
+            for i in range(T - n):
+                r = +R   + d/2 + j*d*f
+                z = -H/2 + d/2 + i*d + n*d/2
+                rl.append(r); zl.append(z)
+                bx, bz = self.getLoop(x, h-z)
+                Bx += bx; Bz += bz
+        psCircles(rl, zl, d/2)
+        psClose()
         return Bx, Bz
 
 if __name__ == "__main__":
 
-    l = loop(1.0) # 1 meter radius
-
-    # # check point 1 : centre (1A)
-    # Bx, Bz = l.getpoint()           # centre of the loop
-    # print(f'{Bx:.6e}, {Bz:.6e}')      # result in Tesla
-    # # compare
-    # print(f'{0.0:.6e}, {mu_0/2:.6e}')
-
-    # # check point 2 : along the axis
-    # Z  = linspace(0.0, 2.0, 21)
-    # Bx, Bz = empty(Z), empty(Z)
-    # for i in range(len(Z)): Bx[i], Bz[i] = l.getpoint(H = Z[i], n = 10000)
-    # # compare
-    # bx, bz = empty(Z), empty(Z)
-    # for i in range(len(Z)): bx[i], bz[i] = 0.0, mu_0/2/(1+Z[i]**2)**1.5
-    # f = '+.9f'
-    # for i in range(len(Z)):
-    #     print(f'Z = {Z[i]:.3f}', end=' ')
-    #     print(f'BX = {bx[i]*1E6:{f}}µT, {Bx[i]*1E6:{f}}µT', end=' ')
-    #     print(f'BZ = {bz[i]*1E6:{f}}µT, {Bz[i]*1E6:{f}}µT', end=' ')
-    #     print()
-
-    # check point 3: value of Bx should be strictly zero
-    Bx, Bz = l.getpoint(H = 0.0, n = 12) 
-    print(f'{Bx*1E6:+.9f}µT, {Bz*1E6:+.9f}µT')
-    # the non zero result due to numerical precision limits
-    # and not to the algorithm. Passed check point 3
-    
+    c = coil(radius = 5.0, height = 10.0, turns =13, layers = 3)
+    print(f'{c.getCoil(h = 0.0, x = 0.0)}[µT]')
