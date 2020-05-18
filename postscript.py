@@ -14,6 +14,8 @@ _TAB = '    '
 _FH = None
 
 # close file
+# showpage
+# %%EOF
 def psClose():
     global _FH
     if _FH:
@@ -37,6 +39,8 @@ _H  = 842
 _FN = './garbage/p.ps'
 
 # open file and write header
+# %%BeginProlog
+# %%EndProlog
 def psOpen(w = None, h = None):
     global _FH, _W, _H
     if _FH: return 0 # already open
@@ -56,6 +60,21 @@ def psOpen(w = None, h = None):
     '''
     return psWrite(BLOCK)
 
+def psColor(r, g, b):
+    BLOCK =f'{b:.3f} {g:.3f} {b:.3f} setrgbcolor\n'
+    return psWrite(BLOCK)
+
+def psStyle(width = None, dash = None):
+    BLOCK = ''
+    if width is not None:
+        BLOCK += f'{width:.1f} setlinewidth\n'
+    if dash is not None:
+        BLOCK += f'{dash} 0 setdash\n'
+    if BLOCK:
+        BLOCK = f'\n% Style\n{BLOCK}'
+        return psWrite(BLOCK)
+    return 0
+
 # draw axis
 def psAxis():
     BLOCK = f'''
@@ -71,10 +90,13 @@ def psAxis():
     '''
     return psWrite(BLOCK)
 
-# Scale Of the drawing
-_SCALE = 10 # means 10:1
+# Scale Of the drawing (from millimeters)
+# _SCALE = 10 # means 10:1
+_SCALE = 5  # means  5:1
+# _SCALE = 2  # means  2:1
+# _SCALE = 1  # means  1:1
 
-# USER UNITS
+# USER UNITS (millimeters)
 _U = 25.4/72/_SCALE
 
 # draw square
@@ -88,10 +110,6 @@ def psSquare(x, y, w, h, name = ''):
     {w:.2f} {0:.2f} rlineto
     {0:.2f} {-h:.2f} rlineto
     {-w:.2f} {0:.2f} rlineto
-    0.3 setlinewidth
-    [1 3 12 3] 0 setdash
-    0.3 setlinewidth
-    [] 0 setdash
     1.0 0.5 0.5 setrgbcolor
     closepath stroke
     '''
@@ -122,9 +140,17 @@ def psCircles(x, y, r, name = ''):
     '''
     return psWrite(BLOCK)
 
+# draw vector
+def psVector(x, y, dx, dy):
+    x, y, dx, dy = x/_U, y/_U, dx/_U, dy/_U
+    BLOCK = f'{dx:.2f} {dy:.2f} {x:.2f} {y:.2f}'
+    BLOCK += ' moveto rlineto stroke\n'
+    return psWrite(BLOCK)
+
 if __name__ == "__main__":
 
     psOpen()
     psAxis()
-    psCircles([-2, 0, +2], [0, 0, 0], 1, 'test')
+    psStyle(width = 0.5, dash = [])
+    psVector(0,0,1,1)
     psClose()
