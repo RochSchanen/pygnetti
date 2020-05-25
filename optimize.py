@@ -110,6 +110,7 @@ ax1.grid()
 # - fit the data with polynomials or
 # - interpolate the existing data
 
+
 # Empirically, a polynomial interpolation
 # requires a fairly large degree to remain
 # accurate which sensibly increases the

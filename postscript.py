@@ -5,7 +5,12 @@
 # /author: Roch Schanen
 # /repository: https://github.com/RochSchanen/pygnetti
 
-# from numpy import array
+# todo: ?
+# close file
+# showpage
+# %%EOF
+
+###########
 
 # TAB FILTER
 _TAB = '    '
@@ -13,9 +18,6 @@ _TAB = '    '
 # ACTIVE FILE HANDLE
 _FH = None
 
-# close file
-# showpage
-# %%EOF
 def psClose():
     global _FH
     if _FH:
@@ -27,8 +29,54 @@ def psClose():
 def psWrite(block):
     if _FH:
         _FH.write(block.replace(_TAB,''))
-        return 1
+        return 0
+    return -1
+
+# fast fixed formating function for floats
+def f(*args):
+    DATA = ''
+    for x in args:
+        DATA += f'{x:+08.3f} '
+    return DATA.strip()
+
+# setup colors
+def psColor(r, g, b):
+    BLOCK =f'{r:.3f} {g:.3f} {b:.3f} setrgbcolor\n'
+    return psWrite(BLOCK)
+
+# setup line style
+def psStyle(width = None, dash = None):
+    BLOCK = ''
+    if width is not None: BLOCK += f'{width:.1f} setlinewidth\n'
+    if dash  is not None: BLOCK += f'{dash} 0 setdash\n'
+    if BLOCK:
+        BLOCK = f'\n% Style\n{BLOCK}'
+        return psWrite(BLOCK)
     return 0
+
+def psArrowStyle(height = 3, ratio = 0.3):
+    h, w = height/_U, height/_U*ratio
+    BLOCK = f'''
+    /arrow {{
+    +000.000 +000.000 moveto
+    {f(0,h)} 2 div rmoveto
+    {f(-w)} 2 div {f(-h)} rlineto
+    {f(w,0)} rlineto
+    closepath fill
+    }} def
+    '''
+    return psWrite(BLOCK)
+
+# only work for A4 dimensions
+def psCool():
+    # set pastel background and light blue pen
+    BLOCK = f'''
+    0.85 0.95 1.0 setrgbcolor
+    -292 +416 +292 +416 +292 -416 -292 -416
+    moveto 3 {{lineto}} repeat closepath fill
+    0.6 0.7 0.9 setrgbcolor
+    '''
+    return psWrite(BLOCK)
 
 # PAGE WIDTH AND HEIGHT
 # A4: 595 x 842
@@ -39,75 +87,79 @@ _H  = 842
 _FN = './garbage/p.ps'
 
 # open file and write header
-# %%BeginProlog
-# %%EndProlog
+# todo: ? %%BeginProlog %%EndProlog
 def psOpen(w = None, h = None):
     global _FH, _W, _H
-    if _FH: return 0 # already open
-    if w is None: w = _W
-    if h is None: h = _H
+    if _FH: return 0       # already open
+    if w is None: w = _W   # select default width
+    if h is None: h = _H   # select default height
+    # open file and set global variables
     _W, _H, _FH = w, h, open(_FN, 'w')
-    BLOCK = f'''
-    %!PS-Adobe-3.0 EPSF-3.0
+    # build block:
+    # define standard header
+    # define commands
+    # set default font
+    # move axis to the center of the page
+    BLOCK = f'''%!PS-Adobe-3.0 EPSF-3.0
     %%BoundingBox: 0 0 {_W} {_H}
     %%Creator: 
     %%Title:
     %%CreationDate:
-    % Defaults
+    
+    % new command
+    /arrowto {{
+    2 copy rlineto currentpoint stroke gsave
+    translate atan -1 mul rotate arrow grestore
+    }} def
+
+    % set defaults font
     /Times-Roman 10 selectfont
+
+    % set origin
     {_W/2:.0f} {_H/2:.0f} translate
-    0 0 moveto
+
     '''
-    return psWrite(BLOCK)
-
-def psColor(r, g, b):
-    BLOCK =f'{r:.3f} {g:.3f} {b:.3f} setrgbcolor\n'
-    return psWrite(BLOCK)
-
-def psStyle(width = None, dash = None):
-    BLOCK = ''
-    if width is not None:
-        BLOCK += f'{width:.1f} setlinewidth\n'
-    if dash is not None:
-        BLOCK += f'{dash} 0 setdash\n'
-    if BLOCK:
-        BLOCK = f'\n% Style\n{BLOCK}'
-        return psWrite(BLOCK)
+    if psWrite(BLOCK): return -1 # error
+    # default color
+    if psColor(0,0,0): return -1 # error
+    # default line style
+    if psStyle(1, []): return -1 # error
+    # default arrow style
+    if psArrowStyle(): return -1 # error
+    # some cool style: you may comment out
+    # if you don't like it...
+    if psCool(): return -1 # error
+    # done
     return 0
 
 # draw axis
 def psAxis():
     BLOCK = f'''
     % Axis
-    % save pen style
-    currentlinewidth
-    currentrgbcolor
-    % set new pen style
-    0.3 setlinewidth
-    [1 3 12 3] 0 setdash
-    % build new path
+    gsave 0.3 setlinewidth [1 3 12 3] 0 setdash
     newpath
-    -{_W/2-15:.0f} 0 moveto
+    {f(-_W/2-15, 0)} moveto
     +{_W/2-15:.0f} 0 lineto
     0 -{_H/2-15:.0f} moveto
     0 +{_H/2-15:.0f} lineto
-    % draw
     stroke
-    % restore pen style
-    setrgbcolor
-    setlinewidth
+    grestore
     '''
     return psWrite(BLOCK)
 
-# Scale Of the drawing (from millimeters)
-# _SCALE = 10 # means 10:1
-# _SCALE = 5  # means  5:1
-# _SCALE = 2  # means  2:1
-# _SCALE = 1  # means  1:1
-_SCALE = 50
+# DEFAULT SCALE (all dimensions are multiplied by SCALE)
+_SCALE = 1.0
 
-# USER UNITS (millimeters)
+# DEFAULT UNITS (base unit is millimeter)
 _U = 25.4/72/_SCALE
+
+# dynamic change of scale
+def psScale(scale):
+    global _SCALE
+    global _U
+    _SCALE = scale
+    _U = 25.4/72/_SCALE
+    return        
 
 # draw square
 def psSquare(x, y, w, h, name = ''):
@@ -147,13 +199,6 @@ def psCircles(x, y, r, name = ''):
     '''
     return psWrite(BLOCK)
 
-# draw single vector
-def psVector(x, y, dx, dy):
-    x, y, dx, dy = x/_U, y/_U, dx/_U, dy/_U
-    BLOCK = f'{dx:.2f} {dy:.2f} {x:.2f} {y:.2f}'
-    BLOCK += ' moveto rlineto stroke\n'
-    return psWrite(BLOCK)
-
 # draw vectors
 def psVectors(x, y, dx, dy):
     # reshape arrays into vectors
@@ -168,7 +213,7 @@ def psVectors(x, y, dx, dy):
         DATA += f'{dx/_U:+09.3f} {dy/_U:+09.3f} '
         DATA += f'{ x/_U:+09.3f} { y/_U:+09.3f} '
         if n < N:
-            if n % 1 == 0:
+            if n % 5 == 0:
                 DATA += '\n'
     # build block    
     BLOCK =f'''
@@ -176,13 +221,35 @@ def psVectors(x, y, dx, dy):
     newpath
     [] 0 setdash
     {DATA}
-    {len(X)} {{moveto rlineto stroke}} repeat
+    {len(X)} {{moveto arrowto}} repeat
     '''
     # done
     return psWrite(BLOCK)
 
+    # {len(X)} {{moveto rlineto stroke}} repeat
+
+
+# draw single vector
+def psVector(x, y, dx, dy):
+    x, y, dx, dy = x/_U, y/_U, dx/_U, dy/_U
+    BLOCK = f'{dx:.2f} {dy:.2f} {x:.2f} {y:.2f}'
+    BLOCK += ' moveto rlineto stroke\n'
+    return psWrite(BLOCK)
+
+# demo
 if __name__ == "__main__":
 
     psOpen()
+
+    # draw axis
     psAxis()
+
+    psArrowStyle(5, 0.4)
+
+    # draw vector
+    psWrite(f'''
+    100  20 moveto
+    -70 -50 arrowto
+    ''')
+
     psClose()

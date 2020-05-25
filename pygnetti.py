@@ -6,13 +6,17 @@
 # /repository: https://github.com/RochSchanen/pygnetti
 
 # numpy: https://numpy.org/
-import numpy as np
 # float type is float64 by default 
 # is equivalent to double in C
-from numpy import pi, sqrt, cos, square, absolute
-from numpy import linspace
+from numpy import pi, sqrt, cos, square, absolute, linspace
+from numpy import meshgrid, zeros_like, interp
 
+# postscript: local
+# quick command to write to postscript files
 from postscript import *
+
+# toolbox: local
+# quick commands to export, import variables
 import toolbox as tb
 
 # here, we assume that mu_0 is 4*pi*1E-7
@@ -23,7 +27,7 @@ import toolbox as tb
 
 # the coil axis is aligned with oz
 # the current is 1A by default
-# magnetic units are in mm and µT
+# magnetic units are in mm and mT
 # radius is the bore of the coil
 # the coil is centered on the origin
 # layers are assumed to be compact
@@ -124,7 +128,7 @@ class coil:
         I1, I2 = self.computeI1I2(a)
         r1d3 = r/sqrt(d2*d2*d2)
         bx, bz = zh*r1d3*I1, r1d3*(r*I2-x*I1)
-        return bx*1E2, bz*1E2 # field value [µT]
+        return bx/10.0, bz/10.0 # field value [mT]
 
     # Single point calculation
     # no optimisatiom
@@ -158,11 +162,11 @@ class coil:
             zn): # number of points
         x = linspace(xs, xe, xn)
         z = linspace(zs, ze, zn)
-        self.shape = xn, zn
-        self.X, self.Z = np.meshgrid(x, z)
+        # build grid
+        self.X, self.Z = meshgrid(x, z)
         # reset the grid fields values
-        self.BX = np.zeros_like(self.X)
-        self.BZ = np.zeros_like(self.Z)
+        self.BX = zeros_like(self.X)
+        self.BZ = zeros_like(self.Z)
         return 
 
     # grid calculation
@@ -175,18 +179,18 @@ class coil:
         D2 = square(self.X)+square(ZH)+square(r)
         A = 2*r*self.X/D2  # alpha
         # interpolate J1, J2
-        J1 = np.interp(A, self.A, self.J1)
-        J2 = np.interp(A, self.A, self.J2)
+        J1 = interp(A, self.A, self.J1)
+        J2 = interp(A, self.A, self.J2)
         # calculate I1, I2
         T81A = self.sqrt32/(1.0-A)/(1.0+A)
         I1, I2 = T81A*J1, T81A*J2
         # calculate fields
         R1D3 = r/sqrt(D2*D2*D2)
-        BX = ZH*R1D3*I1            # BX
-        BZ = R1D3*(r*I2-self.X*I1) # BZ
+        BX = ZH*R1D3*I1            # BX [µT]
+        BZ = R1D3*(r*I2-self.X*I1) # BZ [µT]
         # add contribution
-        self.BX += 1E2*BX
-        self.BZ += 1E2*BZ
+        self.BX += BX/10.0 # [mT]
+        self.BZ += BZ/10.0 # [mT]
         # done
         return
 
@@ -198,4 +202,56 @@ class coil:
         return
 
 if __name__ == "__main__":
-    pass
+
+    # EXAMPLE:
+
+    # open default file "./garbage/p.ps" for postscript output
+    psOpen()
+    
+    # draw axis
+    psAxis()
+    
+    # set scale
+    # (default unit is millimeter for distances)
+    # (default unit is 1 mm/mT for field)
+    psScale(3.0)
+    # (now 1mm is 5mm on paper)
+    # (now 1mT is 5mm on paper)
+
+    # instanciate coil class
+    COIL = coil()
+    # define parameters
+    radius = 10.0     # bore radius of the coil [mm]
+    turns  = 25       # number of turns (first layer)
+    layers = 5        # number of layers
+    I      = 1.000    # current [A]
+    S      = 1.0      # display scaling factor [mm/µT]
+    
+    # setup coil geometry
+    COIL.setupCoil(
+        radius = radius, 
+        height = turns*1.0,
+        turns  = turns,
+        layers = layers)
+    
+    # setup grid geometry
+    COIL.setupGrid(
+        -radius*3.0, +radius*3.0, 23, # min, max, points (x axis)
+        -radius*4.0, +radius*4.0, 27) # min, max, points (y axis)
+    
+    # compute
+    COIL.computeCoil()
+    # draw vectors
+    psColor(0.6, 0.7, 0.9) # rgb ~ blue
+    psStyle(width = 0.5) # line width
+    psVectors(COIL.X, COIL.Z, S*COIL.BX, S*COIL.BZ)
+
+    # draw coil
+    psColor(1.5,0.5,0.5) # rgb ~ red
+    psStyle(width = 0.5) # line width
+    COIL.psCoil()
+
+    # done
+    psClose()
+
+    print(COIL.BX[11,11], COIL.BZ[11,11])
