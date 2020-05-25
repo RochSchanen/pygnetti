@@ -5,23 +5,21 @@
 # /author: Roch Schanen
 # /repository: https://github.com/RochSchanen/pygnetti
 
-# /todo: turn loops into array computations
-# /todo: split postscript output from computation
-# /todo: improve activity display
+# numpy: https://numpy.org/
+import numpy as np
+# float type is float64 by default 
+# is equivalent to double in C
+from numpy import pi, sqrt, cos, square, absolute
+from numpy import linspace
 
 from postscript import *
+import toolbox as tb
 
-# numpy: https://numpy.org/
-# float type is float64 by default <=> double
-from numpy import pi, sqrt, cos, square
-from numpy import linspace
-# from numpy import empty_like as empty
-
-from os import system
-
+# here, we assume that mu_0 is 4*pi*1E-7
+# One might need to change to the new
+# international definition in the futur:
 # scipy: https://scipy.org/
 # from scipy.constants import mu_0
-# we assume that mu_0 is 4*pi*1E-7
 
 # the coil axis is aligned with oz
 # the current is 1A by default
@@ -33,48 +31,74 @@ from os import system
 # the height and the number of turns
 # the number of turns alternates
 # n on even layer and n-1 on odd layers
-# no coil is perfectly wound but
+# the first layer (#0) is defined as even
+# no coil is ever perfectly wound
 # empirically this model should
-# not be too far off real ones
-# some of the results are also
-# written into eps files for display
+# not be too far off real world manufacture
 
 class coil:
 
-    def __init__(self,
-            radius,  # radius [mm]
-            height,  # height [mm]
-            turns,   # number of turns (first layer)
-            layers): # number of layers
-        # record geometry
+    def __init__(self):
+        # get data for interpolation
+        # this is the optimisation part
+        # see "optimise.py" for more informations
+        data = tb.Import('./J1J2.txt')
+        if data: self.A, self.J1, self.J2 = data
+        self.sqrt32 = sqrt(32)
+        return
+
+    # defines the loop positions
+    # from the coil geometry
+    def setupCoil(self,
+            radius = 10.0,  # radius [mm]
+            height =  1.0,  # height [mm]
+            turns  =  1.0,  # number of turns (first layer)
+            layers =  1.0): # number of layers
+        # save geometry
         self.geometry = radius, height, turns, layers
-        d = height/turns   # get wire diameter
-        f = sqrt(3.0)/2.0  # compacting factor
+        d = height/turns    # get wire diameter [mm]
+        f = sqrt(3.0)/2.0   # compacting factor
         # place loops:
         # rl is the radius list
         # hl is the height list
         rl, hl, n = [], [], 0
         for j in range(layers):
-            n = j % 2 # determine oddness
-            for i in range(turns - n):
-                r = + radius   + d/2 + j*d*f
-                h = - height/2 + d/2 + i*d + n*d/2
-                rl.append(r)
+            n = j%2 # determine oddness
+            for i in range(turns-n):
+                r = +radius  +d/2+j*d*f
+                h = -height/2+d/2+i*d+n*d/2
                 hl.append(h)
+                rl.append(r)
         # record lists
-        self.r, self.h = rl, hl
-        # display loop cross sections
-        psCircles(rl, hl, d/2)
-        # display coil former geometry
-        l = d+(layers-1)*d*f # layers depth
-        psSquare(+ radius + l/2, 0, l, height)
-        psSquare(- radius - l/2, 0, l, height)
+        self.rl, self.hl = rl, hl
         return
 
+    # output coil geometry to the
+    # postscript file including
+    # the wires positions.
+    def psCoil(self):
+        # get geometry
+        radius, height, turns, layers = self.geometry
+        d = height/turns    # get wire diameter
+        f = sqrt(3.0)/2.0   # compacting factor
+        # get more geometry
+        rl, hl = self.rl, self.hl        
+        # loop cross sections
+        psCircles(rl, hl, d/2)
+        # coil former geometry
+        l = d+(layers-1)*d*f # layers depth
+        psSquare(+radius+l/2, 0, l, height)
+        psSquare(-radius-l/2, 0, l, height)
+        return        
+
     # elliptic integrales I1, I2
-    def getI1I2(self,
-            alpha = 0.0,   # alpha
-            n = 100):      # intervals
+    # brute numerical intergration
+    # no optimisation here
+    # used for computing tables
+    # integrales diverge at -1.0 and +1.0
+    def computeI1I2(self,
+            alpha = 0.0, # the integration variable
+            n = 100):    # intervals of integration
         i1, i2 = 0.0, 0.0
         t, dt  = 0.0, 2*pi/n
         for i in range(n):
@@ -87,52 +111,91 @@ class coil:
         return i1*dt, i2*dt
 
     # Single point calculation
-    # no optimisatiom yet
-    def getLoopField(self,
-            x = 0.0,    # position radius [mm]
-            z = 0.0):   # position height [mm]
-        R, H, T, L  = self.geometry
-        b = square(x)+square(R)+square(z)
-        d = sqrt(b*b*b)
-        a = 2.0*x*R/b   # alpha
-        I1, I2 = self.getI1I2(a)
-        bx, bz = z*R*I1/d, R/d*(R*I2-x*I1)
-        return bx*1E2, bz*1E2
+    # no optimisatiom here
+    # kept as a debugging tool
+    def _computeLoop(self,
+            r,  # loop radius [mm]
+            h,  # loop height [mm]
+            x,  # point position x [mm]
+            z): # point position z [mm]
+        zh = z-h
+        d2 = square(x)+square(r)+square(zh)
+        a = 2.0*r*x/d2   # alpha
+        I1, I2 = self.computeI1I2(a)
+        r1d3 = r/sqrt(d2*d2*d2)
+        bx, bz = zh*r1d3*I1, r1d3*(r*I2-x*I1)
+        return bx*1E2, bz*1E2 # field value [µT]
 
     # Single point calculation
-    # not optimisation yet
-    def getCoilField(self,
-            x = 0.0,    # position radius [mm]
-            z = 0.0):   # position height [mm]
+    # no optimisatiom
+    # kept for debugging
+    def _computeCoil(self,
+            x = 0.0,  # point position x [mm]
+            z = 0.0): # point position z [mm]
         Bx, Bz = 0, 0
-        for h in self.h:
-            for r in self.r:
-                bx, bz = self.getLoopField(x, z-h)
-                Bx += bx; Bz += bz
+        for h, r in zip(self.hl, self.rl):
+            bx, bz = self._computeLoop(r, h, x, z)
+            Bx += bx
+            Bz += bz
         return Bx, Bz
 
-if __name__ == "__main__":
+    # here we switch the computation
+    # from a single point to matrix
+    # of points. Also, the integrale
+    # values are now interpolated
+    # from tables which reduces
+    # the computing time.
 
-    system('clear')
-    fh = open('./garbage/t.txt', 'w')
-    # output to postscript file
-    psOpen(); 
-    # draw symetry axis
-    psAxis()
-    # create coil
-    c = coil(radius = 10.0, height = 10.0, turns =11, layers = 3)
-    # plot field inside the coil    
-    psStyle(width = 1.0, dash = [])
-    n, m = 0, ['|','/','-','\\']
-    Bx, Bz = c.getCoilField(0, 0)
-    d0 = sqrt(square(Bx) + square(Bz))
-    for x in linspace(0,9,3):
-        for z in linspace(0, 10, 5):
-            Bx, Bz = c.getCoilField(x, z)
-            d = sqrt(square(Bx)+square(Bz))
-            fh.write(f'z={z:+7.2f}, Bx={Bx:+.3f}µT, Bz={Bz:+.3f}µT\n')
-            psVector(x, z, Bx/d0, Bz/d0)
-            print(m[n%4]+'\b', end='', flush = True)
-            n += 1
-    # output done
-    psClose(); fh.close()
+    # by symmetry, we only need
+    # to calculate one quadrant:
+    # the grid is in the plan xOz.
+    def setupGrid(self,
+            xs,  # start x [mm]
+            xe,  # stop  x [mm]
+            xn,  # number of points
+            zs,  # start y [mm]
+            ze,  # stop  y [mm]
+            zn): # number of points
+        x = linspace(xs, xe, xn)
+        z = linspace(zs, ze, zn)
+        self.shape = xn, zn
+        self.X, self.Z = np.meshgrid(x, z)
+        # reset the grid fields values
+        self.BX = np.zeros_like(self.X)
+        self.BZ = np.zeros_like(self.Z)
+        return 
+
+    # grid calculation
+    # optimised for speed
+    # upper case variables are matrices
+    def addLoop(self,
+            r,  # loop radius [mm]
+            h): # loop height [mm]
+        ZH = self.Z-h
+        D2 = square(self.X)+square(ZH)+square(r)
+        A = 2*r*self.X/D2  # alpha
+        # interpolate J1, J2
+        J1 = np.interp(A, self.A, self.J1)
+        J2 = np.interp(A, self.A, self.J2)
+        # calculate I1, I2
+        T81A = self.sqrt32/(1.0-A)/(1.0+A)
+        I1, I2 = T81A*J1, T81A*J2
+        # calculate fields
+        R1D3 = r/sqrt(D2*D2*D2)
+        BX = ZH*R1D3*I1            # BX
+        BZ = R1D3*(r*I2-self.X*I1) # BZ
+        # add contribution
+        self.BX += 1E2*BX
+        self.BZ += 1E2*BZ
+        # done
+        return
+
+    # grid calculation
+    # optimised for speed
+    def computeCoil(self):
+        for h, r in zip(self.hl, self.rl):
+            self.addLoop(r, h)
+        return
+
+if __name__ == "__main__":
+    pass
