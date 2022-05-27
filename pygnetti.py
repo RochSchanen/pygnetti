@@ -183,8 +183,8 @@ class coil:
         I1, I2 = T81A*J1, T81A*J2
         # calculate fields
         R1D3 = r/sqrt(D2*D2*D2)
-        BX = ZH*R1D3*I1            # BX [µT]
-        BZ = R1D3*(r*I2-self.X*I1) # BZ [µT]
+        BX = ZH*R1D3*I1
+        BZ = R1D3*(r*I2-self.X*I1)
         # add contribution
         self.BX += BX/10.0 # [mT]
         self.BZ += BZ/10.0 # [mT]
