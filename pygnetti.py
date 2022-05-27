@@ -11,16 +11,15 @@
 from numpy import pi, sqrt, cos, square, absolute, linspace
 from numpy import meshgrid, zeros_like, interp
 
-# postscript: local
-# quick command to write to postscript files
+# quick command to write to postscript files (local file)
 from postscript import *
 
-# toolbox: local
-# quick commands to export, import variables
+# quick commands to export, import variables (local file)
 import toolbox as tb
 
 # here, we assume that mu_0 is 4*pi*1E-7
-# One might need to change to the new
+# this simplifies the expression used for computation
+# One might need to change to the
 # international definition in the futur:
 # scipy: https://scipy.org/
 # from scipy.constants import mu_0
@@ -30,15 +29,15 @@ import toolbox as tb
 # magnetic units are in mm and mT
 # radius is the bore of the coil
 # the coil is centered on the origin
-# layers are assumed to be compact
+# layers filling is assumed to be compact
 # the wire diameter is derived from
 # the height and the number of turns
 # the number of turns alternates
-# n on even layer and n-1 on odd layers
-# the first layer (#0) is defined as even
-# no coil is ever perfectly wound
-# empirically this model should
-# not be too far off real world manufacture
+# n turns on even layers and n-1 on odd layers
+# the first layer (number 0) is defined as even
+# note to self: no coil is ever perfectly wound
+# however this model should not be too far off
+# todo: other types of fillings?
 
 class coil:
 
@@ -96,13 +95,13 @@ class coil:
         return        
 
     # elliptic integrales I1, I2
-    # brute numerical intergration
+    # raw numerical intergration
     # no optimisation here
     # used for computing tables
     # integrales diverge at -1.0 and +1.0
     def computeI1I2(self,
-            alpha = 0.0, # the integration variable
-            n = 100):    # intervals of integration
+            alpha = 0.0, # this is the integration variable
+            n = 100):    # number of intervals for integration
         i1, i2 = 0.0, 0.0
         t, dt  = 0.0, 2*pi/n
         for i in range(n):
@@ -115,8 +114,8 @@ class coil:
         return i1*dt, i2*dt
 
     # Single point calculation
-    # no optimisatiom here
-    # kept as a debugging tool
+    # no optimisation here
+    # kept for debugging
     def _computeLoop(self,
             r,  # loop radius [mm]
             h,  # loop height [mm]
@@ -131,7 +130,7 @@ class coil:
         return bx/10.0, bz/10.0 # field value [mT]
 
     # Single point calculation
-    # no optimisatiom
+    # no optimisation
     # kept for debugging
     def _computeCoil(self,
             x = 0.0,  # point position x [mm]
@@ -144,14 +143,12 @@ class coil:
         return Bx, Bz
 
     # here we switch the computation
-    # from a single point to matrix
-    # of points. Also, the integrale
-    # values are now interpolated
-    # from tables which reduces
-    # the computing time.
-
-    # by symmetry, we only need
-    # to calculate one quadrant:
+    # from single points to matrices
+    # of points. Also, the integrales
+    # are now interpolated from tables
+    # to accelerate the computing time.
+    # note: by symmetry, we only need
+    # to calculate one quadrant.
     # the grid is in the plan xOz.
     def setupGrid(self,
             xs,  # start x [mm]
@@ -169,7 +166,7 @@ class coil:
         self.BZ = zeros_like(self.Z)
         return 
 
-    # grid calculation
+    # single loop grid calculation
     # optimised for speed
     # upper case variables are matrices
     def addLoop(self,
@@ -194,7 +191,7 @@ class coil:
         # done
         return
 
-    # grid calculation
+    # full coil grid calculation
     # optimised for speed
     def computeCoil(self):
         for h, r in zip(self.hl, self.rl):
@@ -215,8 +212,8 @@ if __name__ == "__main__":
     # (default unit is millimeter for distances)
     # (default unit is 1 mm/mT for field)
     psScale(3.0)
-    # (now 1mm is 5mm on paper)
-    # (now 1mT is 5mm on paper)
+    # (now 1mm is 3mm on paper)
+    # (now 1mT is 3mm on paper)
 
     # instanciate coil class
     COIL = coil()
