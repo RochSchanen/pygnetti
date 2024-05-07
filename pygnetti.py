@@ -1,52 +1,47 @@
 #!/usr/bin/python3
-# /content: magnetic field calculator
-# /file: pygnetti.py
-# /date: 20200515
-# /author: Roch Schanen
-# /repository: https://github.com/RochSchanen/pygnetti
+# file: pygnetti.py
+# author: Roch Schanen
+# date: 2020 05 15
+# content: magnetic field calculator
+# repository: https://github.com/RochSchanen/pygnetti
 
-# numpy: https://numpy.org/
-# float type is float64 by default 
-# is equivalent to double in C
+# from "https://numpy.org/"
 from numpy import pi, sqrt, cos, square, absolute, linspace
 from numpy import meshgrid, zeros_like, interp
+# the float type is float64 by default which is equivalent to double in C
 
 # quick command to write to postscript files (local file)
 from postscript import *
 
-# quick commands to export, import variables (local file)
-import toolbox as tb
+from ielib import file_import
 
-# here, we assume that mu_0 is 4*pi*1E-7
-# this simplifies the expression used for computation
-# One might need to change to the
-# international definition in the futur:
-# scipy: https://scipy.org/
-# from scipy.constants import mu_0
+# here, we assume that mu_0 is 4*pi*1E-7. This simplifies the expressions used
+# for computation. One might need to change to the international definition,
+# by using the scipy library: "https://scipy.org/" where the constant mu_0 can
+# be found. Use then instead: "from scipy.constants import mu_0"
 
-# the coil axis is aligned with oz
-# the current is 1A by default
-# magnetic units are in mm and mT
-# radius is the bore of the coil
-# the coil is centered on the origin
-# layers filling is assumed to be compact
-# the wire diameter is derived from
-# the height and the number of turns
-# the number of turns alternates
-# n turns on even layers and n-1 on odd layers
-# the first layer (number 0) is defined as even
-# note to self: no coil is ever perfectly wound
-# however this model should not be too far off
-# todo: other types of fillings?
+# The coil axis is aligned along Oz. The current is 1A by default. The units of
+# length are the mm, and the magnetic units are the mT. The "radius" parameter
+# represents the bore of the coil, the coil being centred on the origin. The
+# layer filling is assumed to be compact (a triangular stacking from a cross
+# section view). The wire diameter is derived from the height and the number of
+# turns. The number of turns alternates, with n turns on even layers, and n-1
+# turns on odd layers. The first layer (number 0) is always defined as even.
+# No coil is ever perfectly wound, however, the compact model with alternating
+# even and odd number of turns cannot be not too far from how a real coil looks
+# like, especially when a small diameter wire is used. Other models should be
+# easy to program.
 
 class coil:
 
     def __init__(self):
-        # get data for interpolation
-        # this is the optimisation part
-        # see "optimise.py" for more informations
-        data = tb.Import('./J1J2.txt')
-        if data: self.A, self.J1, self.J2 = data
+        # get interpolation data 
+        # see "optimise.py" for more information
+        # A is alpha, J1 and J2 the normalised integrals
+        data = file_import('./J1J2.txt', 2)
+        if data is not None:
+            self.A, self.J1, self.J2 = data 
+        # compute the square root of 32 only once
         self.sqrt32 = sqrt(32)
         return
 
@@ -55,12 +50,12 @@ class coil:
     def setupCoil(self,
             radius = 10.0,  # radius [mm]
             height =  1.0,  # height [mm]
-            turns  =  1.0,  # number of turns (first layer)
-            layers =  1.0): # number of layers
-        # save geometry
+            turns  =  1.0,  # number of turns (first layer #0, n turns)
+            layers =  1.0): # number of layers (odd layers, n-1 turns)
+        # record geometry
         self.geometry = radius, height, turns, layers
         d = height/turns    # get wire diameter [mm]
-        f = sqrt(3.0)/2.0   # compacting factor
+        f = sqrt(3.0)/2.0   # compacting factor (compute only once)
         # place loops:
         # rl is the radius list
         # hl is the height list
@@ -94,14 +89,14 @@ class coil:
         psSquare(-radius-l/2, 0, l, height)
         return        
 
-    # elliptic integrales I1, I2
-    # raw numerical intergration
+    # elliptic integrals I1, I2
+    # raw numerical integration
     # no optimisation here
     # used for computing tables
-    # integrales diverge at -1.0 and +1.0
+    # integrals diverge at -1.0 and +1.0
     def computeI1I2(self,
             alpha = 0.0, # this is the integration variable
-            n = 100):    # number of intervals for integration
+            n = 100):    # number of intervals of integration
         i1, i2 = 0.0, 0.0
         t, dt  = 0.0, 2*pi/n
         for i in range(n):
@@ -144,7 +139,7 @@ class coil:
 
     # here we switch the computation
     # from single points to matrices
-    # of points. Also, the integrales
+    # of points. Also, the integrals
     # are now interpolated from tables
     # to accelerate the computing time.
     # note: by symmetry, we only need
@@ -167,8 +162,8 @@ class coil:
         return 
 
     # single loop grid calculation
-    # optimised for speed
-    # upper case variables are matrices
+    # (optimised using matrix computation)
+    # All upper case variables are matrices
     def addLoop(self,
             r,  # loop radius [mm]
             h): # loop height [mm]
@@ -192,7 +187,7 @@ class coil:
         return
 
     # full coil grid calculation
-    # optimised for speed
+    # (optimised using matrix computation)
     def computeCoil(self):
         for h, r in zip(self.hl, self.rl):
             self.addLoop(r, h)
@@ -200,55 +195,67 @@ class coil:
 
 if __name__ == "__main__":
 
-    # EXAMPLE:
+    # # EXAMPLE:
 
-    # open default file "./garbage/p.ps" for postscript output
-    psOpen()
+    # # open default file "./garbage/p.ps" for postscript output
+    # psOpen()
     
-    # draw axis
-    psAxis()
+    # # draw axis
+    # psAxis()
     
-    # set scale
-    # (default unit is millimeter for distances)
-    # (default unit is 1 mm/mT for field)
-    psScale(3.0)
-    # (now 1mm is 3mm on paper)
-    # (now 1mT is 3mm on paper)
+    # # set scale
+    # # (default unit is millimeter for distances)
+    # # (default unit is 1 mm/mT for field)
+    # psScale(3.0)
+    # # (now 1mm is 3mm on paper)
+    # # (now 1mT is 3mm on paper)
 
     # instanciate coil class
     COIL = coil()
-    # define parameters
-    radius = 10.0     # bore radius of the coil [mm]
-    turns  = 25       # number of turns (first layer)
-    layers = 5        # number of layers
-    I      = 1.000    # current [A]
-    S      = 1.0      # display scaling factor [mm/µT]
+
+    # # define parameters
+    # radius = 10.0     # bore radius of the coil [mm]
+    # turns  = 25       # number of turns (first layer)
+    # layers = 5        # number of layers
+    # I      = 1.000    # current [A]
+    # S      = 1.0      # display scaling factor [mm/µT]
     
+    # # setup coil geometry
+    # COIL.setupCoil(
+    #     radius = radius, 
+    #     height = turns*1.0,
+    #     turns  = turns,
+    #     layers = layers)
+
     # setup coil geometry
     COIL.setupCoil(
-        radius = radius, 
-        height = turns*1.0,
-        turns  = turns,
-        layers = layers)
+        radius = 10, 
+        height = 25*1.0,
+        turns  = 25,
+        layers = 5)
     
     # setup grid geometry
     COIL.setupGrid(
-        -radius*3.0, +radius*3.0, 23, # min, max, points (x axis)
-        -radius*4.0, +radius*4.0, 27) # min, max, points (y axis)
+        -30, +30, 3, # min, max, points (x axis)
+        -40, +40, 3) # min, max, points (y axis)
     
     # compute
     COIL.computeCoil()
+
     # draw vectors
-    psColor(0.6, 0.7, 0.9) # rgb ~ blue
-    psStyle(width = 0.5) # line width
-    psVectors(COIL.X, COIL.Z, S*COIL.BX, S*COIL.BZ)
+    # psColor(0.6, 0.7, 0.9) # rgb ~ blue
+    # psStyle(width = 0.5) # line width
+    # psVectors(COIL.X, COIL.Z, S*COIL.BX, S*COIL.BZ)
 
     # draw coil
-    psColor(1.5,0.5,0.5) # rgb ~ red
-    psStyle(width = 0.5) # line width
-    COIL.psCoil()
+    # psColor(1.5,0.5,0.5) # rgb ~ red
+    # psStyle(width = 0.5) # line width
+    # COIL.psCoil()
 
     # done
-    psClose()
+    # psClose()
 
-    print(COIL.BX[11,11], COIL.BZ[11,11])
+    # print(COIL.BX[11,11], COIL.BZ[11,11])
+
+    print(COIL.BX)
+    print(COIL.BZ)

@@ -6,8 +6,7 @@ files.txt
 	pygnetti.py: magnetic field calculator.
 	postscript.py: postscript toolbox for eps output.
 	optimize.py: to compute optimisation tables.
-	toolbox.py: some useful tools.
-	development.py: double check results
+	ielib.py: files import export micro library.
 	I1I2.txt: intermediate results
 	J1J2.Txt: normalised table for interpolation
 	doc/I1I2.pdf: elliptic integrales numerically computed
