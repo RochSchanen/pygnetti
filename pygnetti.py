@@ -10,9 +10,7 @@ from numpy import pi, sqrt, cos, square, absolute, linspace
 from numpy import meshgrid, zeros_like, interp
 # the float type is float64 by default which is equivalent to double in C
 
-# quick command to write to postscript files (local file)
-from postscript import *
-
+# from local modules
 from ielib import file_import
 
 # here, we assume that mu_0 is 4*pi*1E-7. This simplifies the expressions used
@@ -71,32 +69,43 @@ class coil:
         self.rl, self.hl = rl, hl
         return
 
-    # output coil geometry to the
-    # postscript file including
-    # the wires positions.
-    def psCoil(self):
+    # draw the coil wire positions
+    def draw_wires(self, psdoc):
         # get geometry
         radius, height, turns, layers = self.geometry
         d = height/turns    # get wire diameter
         f = sqrt(3.0)/2.0   # compacting factor
         # get more geometry
-        rl, hl = self.rl, self.hl        
+        from numpy import array
+        rl, hl = array(self.rl), array(self.hl)        
         # loop cross sections
-        psCircles(rl, hl, d/2)
+        psdoc.circles(+rl, hl, d/2)
+        psdoc.circles(-rl, hl, d/2)
         # coil former geometry
         l = d+(layers-1)*d*f # layers depth
-        psSquare(+radius+l/2, 0, l, height)
-        psSquare(-radius-l/2, 0, l, height)
+        psdoc.rectangle(+radius, -height/2, +radius+l, +height/2)
+        psdoc.rectangle(-radius, -height/2, -radius-l, +height/2)
+        return        
+
+    # draw the coil area
+    def draw_area(self, psdoc):
+        # get geometry
+        radius, height, turns, layers = self.geometry
+        d = height/turns        # get wire diameter
+        f = sqrt(3.0)/2.0       # compacting factor
+        l = d+(layers-1)*d*f    # layers depth
+        psdoc.rectangle(+radius, -height/2, +radius+l, +height/2)
+        psdoc.rectangle(-radius, -height/2, -radius-l, +height/2)
         return        
 
     # elliptic integrals I1, I2
     # raw numerical integration
-    # no optimisation here
-    # used for computing tables
-    # integrals diverge at -1.0 and +1.0
+    # there is no optimisation here
+    # it is used for computing optimisation tables
+    # note that these integrals diverge at -1.0 and +1.0
     def computeI1I2(self,
-            alpha = 0.0, # this is the integration variable
-            n = 100):    # number of intervals of integration
+            alpha = 0.0,    # integration variable
+            n = 100):       # number of intervals
         i1, i2 = 0.0, 0.0
         t, dt  = 0.0, 2*pi/n
         for i in range(n):
@@ -195,67 +204,47 @@ class coil:
 
 if __name__ == "__main__":
 
-    # # EXAMPLE:
+    from pslib import document
 
-    # # open default file "./garbage/p.ps" for postscript output
-    # psOpen()
-    
-    # # draw axis
-    # psAxis()
-    
-    # # set scale
-    # # (default unit is millimeter for distances)
-    # # (default unit is 1 mm/mT for field)
-    # psScale(3.0)
-    # # (now 1mm is 3mm on paper)
-    # # (now 1mT is 3mm on paper)
+    d = document()
 
-    # instanciate coil class
-    COIL = coil()
+    # show axes
+    d.graycolor(0.3)
+    d.thickness(0.1)
+    d.hline()
+    d.vline()
 
-    # # define parameters
-    # radius = 10.0     # bore radius of the coil [mm]
-    # turns  = 25       # number of turns (first layer)
-    # layers = 5        # number of layers
-    # I      = 1.000    # current [A]
-    # S      = 1.0      # display scaling factor [mm/µT]
-    
-    # # setup coil geometry
-    # COIL.setupCoil(
-    #     radius = radius, 
-    #     height = turns*1.0,
-    #     turns  = turns,
-    #     layers = layers)
+    # instantiate coil
+    c = coil()
 
     # setup coil geometry
-    COIL.setupCoil(
+    c.setupCoil(
         radius = 10, 
         height = 25*1.0,
         turns  = 25,
         layers = 5)
-    
+
+    d.graycolor(0.3)
+    d.thickness(0.1)
+    c.draw_wires(d)
+
+    d.rgbcolor(0.7, 0.0, 0.7)
+    d.thickness(0.25)
+    c.draw_area(d)
+
     # setup grid geometry
-    COIL.setupGrid(
-        -30, +30, 3, # min, max, points (x axis)
-        -40, +40, 3) # min, max, points (y axis)
+    c.setupGrid(
+        -20.0, +20.0, 13, # min, max, points (x)
+        -20.0, +20.0, 13) # min, max, points (y)
     
     # compute
-    COIL.computeCoil()
+    c.computeCoil()
 
-    # draw vectors
-    # psColor(0.6, 0.7, 0.9) # rgb ~ blue
-    # psStyle(width = 0.5) # line width
-    # psVectors(COIL.X, COIL.Z, S*COIL.BX, S*COIL.BZ)
+    # setup arrow size and style
+    d.define_arrow_style(1.5, 0.3)
 
-    # draw coil
-    # psColor(1.5,0.5,0.5) # rgb ~ red
-    # psStyle(width = 0.5) # line width
-    # COIL.psCoil()
+    d.graycolor(0.8)
+    d.thickness(0.1)
+    d.arrows(c.X, c.Z, c.BX, c.BZ)
 
-    # done
-    # psClose()
-
-    # print(COIL.BX[11,11], COIL.BZ[11,11])
-
-    print(COIL.BX)
-    print(COIL.BZ)
+    print(c.BX[6, 6], c.BZ[6, 6])
