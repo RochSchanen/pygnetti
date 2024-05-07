@@ -81,10 +81,6 @@ class coil:
         # loop cross sections
         psdoc.circles(+rl, hl, d/2)
         psdoc.circles(-rl, hl, d/2)
-        # coil former geometry
-        l = d+(layers-1)*d*f # layers depth
-        psdoc.rectangle(+radius, -height/2, +radius+l, +height/2)
-        psdoc.rectangle(-radius, -height/2, -radius-l, +height/2)
         return        
 
     # draw the coil area
@@ -206,7 +202,7 @@ if __name__ == "__main__":
 
     from pslib import document
 
-    d = document()
+    d = document(Size = "A6")
 
     # show axes
     d.graycolor(0.3)
@@ -220,17 +216,17 @@ if __name__ == "__main__":
     # setup coil geometry
     c.setupCoil(
         radius = 10, 
-        height = 25*1.0,
-        turns  = 25,
-        layers = 5)
+        height = 10,
+        turns  = 20,
+        layers = 3)
 
     d.graycolor(0.3)
-    d.thickness(0.1)
+    d.thickness(0.01)
     c.draw_wires(d)
 
-    d.rgbcolor(0.7, 0.0, 0.7)
-    d.thickness(0.25)
-    c.draw_area(d)
+    # d.rgbcolor(0.7, 0.0, 0.7)
+    # d.thickness(0.25)
+    # c.draw_area(d)
 
     # setup grid geometry
     c.setupGrid(
@@ -247,4 +243,6 @@ if __name__ == "__main__":
     d.thickness(0.1)
     d.arrows(c.X, c.Z, c.BX, c.BZ)
 
-    print(c.BX[6, 6], c.BZ[6, 6])
+    # center field
+    bx, bz = c.BX[6, 6], c.BZ[6, 6]
+    print(f"center field = {sqrt(bx*bx+bz*bz):.3f}mT")
