@@ -97,6 +97,54 @@ class coil:
         psdoc.rectangle(-radius, -height/2, -radius-l, +height/2)
         return        
 
+    # elliptic integrals I1, I2
+    # raw numerical integration
+    # there is no optimisation
+    # it is used for computing optimisation tables
+    # note that these integrals diverge at -1.0 and +1.0
+    def computeI1I2(self,
+            alpha = 0.0,    # integration variable
+            n = 100):       # number of intervals
+        i1, i2 = 0.0, 0.0
+        t, dt  = 0.0, 2*pi/n
+        for i in range(n):
+            c = cos(t)
+            m = 1.0-alpha*c
+            d = sqrt(m*m*m)
+            i1 += c/d
+            i2 += 1.0/d
+            t  += dt
+        return i1*dt, i2*dt
+
+    # Single point calculation
+    # no optimisation here
+    # kept for debugging
+    def _computeLoop(self,
+            r,  # loop radius [mm]
+            h,  # loop height [mm]
+            x,  # point position x [mm]
+            z): # point position z [mm]
+        zh = z-h
+        d2 = square(x)+square(r)+square(zh)
+        a = 2.0*r*x/d2   # alpha
+        I1, I2 = self.computeI1I2(a)
+        r1d3 = r/sqrt(d2*d2*d2)
+        bx, bz = zh*r1d3*I1, r1d3*(r*I2-x*I1)
+        return bx/10.0, bz/10.0 # field value [mT]
+
+    # Single point calculation
+    # no optimisation
+    # kept for debugging
+    def _computeCoil(self,
+            x = 0.0,  # point position x [mm]
+            z = 0.0): # point position z [mm]
+        Bx, Bz = 0, 0
+        for h, r in zip(self.hl, self.rl):
+            bx, bz = self._computeLoop(r, h, x, z)
+            Bx += bx
+            Bz += bz
+        return Bx, Bz
+
     # here we switch the computation
     # from single points to matrices
     # of points. Also, the integrals
