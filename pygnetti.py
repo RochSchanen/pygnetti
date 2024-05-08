@@ -94,6 +94,11 @@ class coil:
         psdoc.rectangle(-radius, -height/2, -radius-l, +height/2)
         return        
 
+    def draw_grid(self, psdoc):
+        X, Z = self.X.reshape(-1), self.Z.reshape(-1)
+        psdoc.disks(X, Z, 0.1)
+        return
+
     # elliptic integrals I1, I2
     # raw numerical integration
     # there is no optimisation here
@@ -216,11 +221,11 @@ if __name__ == "__main__":
     # setup coil geometry
     c.setupCoil(
         radius = 10, 
-        height = 10,
-        turns  = 20,
-        layers = 3)
+        height = 5,
+        turns  = 5,
+        layers = 10)
 
-    d.graycolor(0.3)
+    d.rgbcolor(0.8, 0.1, 0.3)
     d.thickness(0.01)
     c.draw_wires(d)
 
@@ -228,21 +233,59 @@ if __name__ == "__main__":
     # d.thickness(0.25)
     # c.draw_area(d)
 
+    radius, height, turns, layers = c.geometry
+    wd = height / turns
+    pf = sqrt(3.0)
+
+    ##############################################################################
+
+    # even grid
+    ns, ne = -5, + 4
     # setup grid geometry
     c.setupGrid(
-        -20.0, +20.0, 13, # min, max, points (x)
-        -20.0, +20.0, 13) # min, max, points (y)
-    
+        # min, max, points (x)
+        radius + ns * wd*pf, radius + ne * wd*pf, ne-ns + 1,
+        # min, max, points (z)
+        -2.0*wd,  2.0*wd,   5)            
+    c.draw_grid(d)
     # compute
     c.computeCoil()
-
     # setup arrow size and style
-    d.define_arrow_style(1.5, 0.3)
-
-    d.graycolor(0.8)
+    # d.define_arrow_style(1.0, 0.3)
+    d.define_arrow_style(.3, 0.3)
+    # scale field only
+    d.rgbcolor(0.1, 0.3, 0.9)
     d.thickness(0.1)
-    d.arrows(c.X, c.Z, c.BX, c.BZ)
+    # d.arrows(c.X, c.Z, c.BX, c.BZ)
+    # d.arrows(c.X, c.Z, c.BX/5, c.BZ/5)
+    d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
+
+    ##############################################################################
+
+    # # odd grid
+    # ns, ne = -6, + 4
+    # # setup grid geometry
+    # c.setupGrid(
+    #     # min, max, points (x)
+    #     radius + (ns+0.5) * wd*pf, radius + (ne+0.5) * wd*pf, ne-ns + 1,
+    #     # min, max, points (z)
+    #     -1.5*wd,  1.5*wd,   4)            
+    # c.draw_grid(d)
+    # # compute
+    # c.computeCoil()
+    # # setup arrow size and style
+    # # d.define_arrow_style(1.0, 0.3)
+    # d.define_arrow_style(.3, 0.3)
+    # # scale field only
+    # d.rgbcolor(0.1, 0.9, 0.3)
+    # d.thickness(0.1)
+    # # d.arrows(c.X, c.Z, c.BX, c.BZ)
+    # d.arrows(c.X, c.Z, c.BX/5, c.BZ/5)
+
+    ##############################################################################
 
     # center field
-    bx, bz = c.BX[6, 6], c.BZ[6, 6]
-    print(f"center field = {sqrt(bx*bx+bz*bz):.3f}mT")
+    # bx, bz = c.BX[6, 6], c.BZ[6, 6]
+    # bx, bz = c.BX[0, 10], c.BZ[0, 10]
+    # print(f"center field = {sqrt(bx*bx+bz*bz)*1E3:.3f}µT")
+    # print(f"center field = {sqrt(bx*bx+bz*bz)*1E0:.3f}mT")

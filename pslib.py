@@ -510,6 +510,24 @@ class document():
         '''
         return self.write(BLOCK)
 
+    def disks(self, x, y, r):
+        # build data array
+        N, n, DATA = len(x), 0, ''
+        for x, y in zip(x, y):
+            n += 1
+            DATA += f"{sca(x, y)}"
+            DATA += EOL if n % 4 == 0 else SPC
+        # make block
+        BLOCK = f'''
+        % --- MULTIPLE CIRCLES ---
+        newpath
+        [] 0 setdash
+        /circle {{ {sca(r)} 0 360 arc fill }} def
+        {DATA}
+        {N} {{circle}} repeat
+        '''
+        return self.write(BLOCK)
+
     ##################
     ### RECTANGLES ###
     ##################
@@ -546,9 +564,9 @@ class document():
         # done
         return                
 
-    #############
-    ### ARROW ###
-    #############
+    ##############
+    ### ARROWS ###
+    ##############
 
     def define_arrow_style(self, size = 3, ratio = 0.3):
         h, w = size, size*ratio
