@@ -6,9 +6,14 @@
 # repository: https://github.com/RochSchanen/pygnetti
 
 # from "https://numpy.org/"
-from numpy import pi, sqrt, cos, square, absolute, linspace
-from numpy import meshgrid, zeros_like, interp
-# the float type is float64 by default which is equivalent to double in C
+from numpy import sqrt
+from numpy import square
+from numpy import linspace
+from numpy import meshgrid
+from numpy import zeros_like
+from numpy import interp
+# the float type is float64 by default
+# which is equivalent to double in C
 
 # from local modules
 from ielib import file_import
@@ -47,7 +52,7 @@ class coil:
         self.sqrt32 = sqrt(32)
         return
 
-    # defines all the loop positions
+    # "define_geometry()" is used to compute all the loop positions
     def define_geometry(self,
             radius = 10.0,  # radius [mm]
             height =  1.0,  # height [mm]
@@ -89,7 +94,7 @@ class coil:
         # done
         return        
 
-    # draw the coil area (two boxes)
+    # draw the coil area (two rectangle cross sections)
     def draw_area(self, psdoc):
         # get geometry
         radius, height, turns, layers = self.geometry
@@ -97,15 +102,14 @@ class coil:
         psdoc.rectangle(-radius, -height/2, -radius-l, +height/2)
         return        
 
-    # here we switch the computation
-    # from single points to matrices
-    # of points. Also, the integrals
-    # are now interpolated from tables
-    # to accelerate the computing time.
-    # note: by symmetry, we only need
-    # to calculate one quadrant.
-    # the grid is in the plan xOz.
-    def setupGrid(self,
+    # the computation is performed using matrices or vectors to accelerate the
+    # computation. Also, the so called elliptic integrals are now interpolated
+    # from the tables found in J1J2.txt which also reduces the computing time.
+    # Note that, by symmetry, only one quadrant of the grid requires to be
+    # calculated. However, the definition of the grid geometry is left to the
+    # user. By convention, the grid is definied in the plan xOz. By convention,
+    # matrices are labelled using upper case letters.
+    def define_grid(self,
             xs,  # start x [mm]
             xe,  # stop  x [mm]
             xn,  # number of points
@@ -127,15 +131,16 @@ class coil:
         psdoc.disks(X, Z, 0.1)
         return
 
-    # single loop grid calculation
-    # (optimised using matrix calculation)
-    # Note that all upper case variables are matrices
-    def addLoop(self,
+    # add the field produced by one loop at the grid points. 
+    def add_loop(self,
             r,  # loop radius [mm]
             h): # loop height [mm]
+        # shift loop's height
         ZH = self.Z-h
+        # intermediate vector
         D2 = square(self.X)+square(ZH)+square(r)
-        A = 2*r*self.X/D2  # alpha
+        # alpha vector
+        A = 2*r*self.X/D2
         # interpolate J1, J2
         J1 = interp(A, self.A, self.J1)
         J2 = interp(A, self.A, self.J2)
@@ -146,28 +151,28 @@ class coil:
         R1D3 = r/sqrt(D2*D2*D2)
         BX = ZH*R1D3*I1
         BZ = R1D3*(r*I2-self.X*I1)
-        # add contribution
+        # add loop contribution to the total field
         self.BX += BX/10.0 # [mT]
         self.BZ += BZ/10.0 # [mT]
         # done
         return
 
-    # full coil grid calculation
-    # (optimised using matrix computation)
+    # compute coil field produced at the grid points.
     def computeCoil(self):
         for h, r in zip(self.hl, self.rl):
-            self.addLoop(r, h)
+            self.add_loop(r, h)
         return
 
 if __name__ == "__main__":
 
     from pslib import document
 
-    d = document(Size = "A6")
+    d = document(Size = "A8", Type = "eps")
 
     # show axes
     d.graycolor(0.3)
-    d.thickness(0.1)
+    d.thickness(0.01)
+    d.dash(5, 1)
     d.hline()
     d.vline()
 
@@ -198,7 +203,7 @@ if __name__ == "__main__":
     # even grid
     ns, ne = -5, + 4
     # setup grid geometry
-    c.setupGrid(
+    c.define_grid(
         # min, max, points (x)
         radius + ns * wd*pf, radius + ne * wd*pf, ne-ns + 1,
         # min, max, points (z)
@@ -208,7 +213,7 @@ if __name__ == "__main__":
     c.computeCoil()
     # setup arrow size and style
     # d.define_arrow_style(1.0, 0.3)
-    d.define_arrow_style(.3, 0.3)
+    d.define_arrow_style(0.4)
     # scale field only
     d.rgbcolor(0.1, 0.3, 0.9)
     d.thickness(0.1)
@@ -218,25 +223,25 @@ if __name__ == "__main__":
 
     ##############################################################################
 
-    # # odd grid
-    # ns, ne = -6, + 4
-    # # setup grid geometry
-    # c.setupGrid(
-    #     # min, max, points (x)
-    #     radius + (ns+0.5) * wd*pf, radius + (ne+0.5) * wd*pf, ne-ns + 1,
-    #     # min, max, points (z)
-    #     -1.5*wd,  1.5*wd,   4)            
-    # c.draw_grid(d)
-    # # compute
-    # c.computeCoil()
-    # # setup arrow size and style
-    # # d.define_arrow_style(1.0, 0.3)
-    # d.define_arrow_style(.3, 0.3)
-    # # scale field only
-    # d.rgbcolor(0.1, 0.9, 0.3)
-    # d.thickness(0.1)
-    # # d.arrows(c.X, c.Z, c.BX, c.BZ)
-    # d.arrows(c.X, c.Z, c.BX/5, c.BZ/5)
+    # odd grid
+    ns, ne = -6, + 4
+    # setup grid geometry
+    c.define_grid(
+        # min, max, points (x)
+        radius + (ns+0.5) * wd*pf, radius + (ne+0.5) * wd*pf, ne-ns + 1,
+        # min, max, points (z)
+        -1.5*wd,  1.5*wd,   4)            
+    c.draw_grid(d)
+    # compute
+    c.computeCoil()
+    # setup arrow size and style
+    # d.define_arrow_style(1.0, 0.3)
+    d.define_arrow_style(0.4)
+    # scale field only
+    d.rgbcolor(0.1, 0.9, 0.3)
+    d.thickness(0.1)
+    # d.arrows(c.X, c.Z, c.BX, c.BZ)
+    d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
 
     ##############################################################################
 

@@ -336,14 +336,14 @@ class document():
             """)
         return
 
-    # def dash(self, dashes = []):
-    #     # default is a solid line
-    #     s = f"[{sca(dashes)}]" if dashes else f"[]"
-    #     self.write(f"""
-    #         % --- SET DASH ---
-    #         {s} 0 setdash
-    #         """)
-    #     return
+    def dash(self, *dashes):
+        # default (no parameters) is a solid line
+        s = sca(*dashes) if len(dashes)>0 else ""
+        self.write(f"""
+            % --- SET DASH ---
+            [{s}] 0 setdash
+            """)
+        return
 
     #############
     ### LINES ###
@@ -568,14 +568,14 @@ class document():
     ### ARROWS ###
     ##############
 
-    def define_arrow_style(self, size = 3, ratio = 0.3):
+    def define_arrow_style(self, size = 3, ratio = 0.5):
         h, w = size, size*ratio
         BLOCK = f'''
         /arrow {{
         +000.000 +000.000 moveto
-        {sca(0,h)} 2 div rmoveto
-        {sca(-w)} 2 div {sca(-h)} rlineto
-        {sca(w,0)} rlineto
+        {sca(0, h/2.0)} rmoveto
+        {sca(-w/2.0, -h)} rlineto
+        {sca(w, 0.0)} rlineto
         closepath fill
         }} def
         '''

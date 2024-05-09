@@ -57,8 +57,8 @@ else:
 	# prepare the result tables
 	I1, I2 = empty_like(A), empty_like(A)
 	# compute the integrals: a thousand subdivisions for
-	# evaluating the integral seams empirically to be a
-	# good number.
+	# evaluating the integral seams to be, empirically,
+	# a good number.
 	for i in range(len(A)):
 		I1[i], I2[i] = computeI1I2(A[i], n = 1000)
 	# export the results
@@ -85,7 +85,7 @@ if data is not None:
 else:
 
 	# Normalisation of I1 and I2
-	# The sqrt(32) can be found when computing
+	# The sqrt(32) can be found when analysing
 	# the asymptotic behaviour of J1 and J2 at
 	# the end points (alpha = -1.0 or +1.0)
 	
@@ -93,7 +93,7 @@ else:
 	J2 = I2*(1.0-A)*(1.0+A)/sqrt(32)
 
 	# The normalised functions have computable
-	# theoretical limits:
+	# theoretical limits through analysis:
 	# at +1.0, (J1, J2) = (+1.0, +1.0)
 	# at -1.0, (J1, J2) = (-1.0, +1.0)
 	# These limit points are added by hand in
