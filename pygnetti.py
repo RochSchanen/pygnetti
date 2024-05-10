@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     from pslib import document
 
-    d = document(Size = "A8", Type = "eps")
+    d = document(Size = "A7", Type = "eps")
 
     # show axes
     d.graycolor(0.3)
@@ -181,10 +181,10 @@ if __name__ == "__main__":
 
     # setup coil geometry
     c.define_geometry(
-        radius = 10, 
+        radius = 15, 
         height = 5,
         turns  = 5,
-        layers = 10)
+        layers = 5)
 
     d.rgbcolor(0.8, 0.1, 0.3)
     d.thickness(0.01)
@@ -196,18 +196,35 @@ if __name__ == "__main__":
 
     radius, height, turns, layers = c.geometry
     wd = height / turns
-    pf = sqrt(3.0)
+    pf = sqrt(3.0)/2
 
-    ##############################################################################
+    ###########################################################################
 
-    # even grid
-    ns, ne = -5, + 4
+    def even(n):
+        return (n+1)%2
+
+    def bzmax(c):
+        if len(c.BZ) == 0: return 1.0
+        return max(c.BZ.reshape(-1))
+
+    ###########################################################################
+
+    # first sub grid (starting at bore radius)
+    ns = int(-radius/wd/pf/2)
+    ne = int(layers/2) - 1
+    np = int(turns/2) - even(turns)*0.5
+
     # setup grid geometry
     c.define_grid(
         # min, max, points (x)
-        radius + ns * wd*pf, radius + ne * wd*pf, ne-ns + 1,
+        radius + 2 * ns * wd*pf,
+        radius + 2 * ne * wd*pf,
+        ne-ns + 1,
         # min, max, points (z)
-        -2.0*wd,  2.0*wd,   5)            
+        -np*wd,
+        +np*wd,
+        turns)
+
     c.draw_grid(d)
     # compute
     c.computeCoil()
@@ -217,20 +234,29 @@ if __name__ == "__main__":
     # scale field only
     d.rgbcolor(0.1, 0.3, 0.9)
     d.thickness(0.1)
-    # d.arrows(c.X, c.Z, c.BX, c.BZ)
-    # d.arrows(c.X, c.Z, c.BX/5, c.BZ/5)
-    d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
 
-    ##############################################################################
+    # d.arrows(c.X, c.Z, c.BX, c.BZ)
+    d.arrows(c.X, c.Z, c.BX/bzmax(c), c.BZ/bzmax(c))
+    # d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
+
+    ###########################################################################
 
     # odd grid
-    ns, ne = -6, + 4
+    ns = int(-radius/wd/pf/2-0.5)
+    ne = int(layers/2) - 1
+    np = int((turns-1)/2) - even((turns-1))*0.5
+
     # setup grid geometry
     c.define_grid(
         # min, max, points (x)
-        radius + (ns+0.5) * wd*pf, radius + (ne+0.5) * wd*pf, ne-ns + 1,
+        radius + 2 * (ns+0.5) * wd*pf,
+        radius + 2 * (ne+0.5) * wd*pf,
+        ne-ns + 1,
         # min, max, points (z)
-        -1.5*wd,  1.5*wd,   4)            
+        -np*wd,
+        +np*wd,
+        turns - 1)
+
     c.draw_grid(d)
     # compute
     c.computeCoil()
@@ -240,8 +266,10 @@ if __name__ == "__main__":
     # scale field only
     d.rgbcolor(0.1, 0.9, 0.3)
     d.thickness(0.1)
+
     # d.arrows(c.X, c.Z, c.BX, c.BZ)
-    d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
+    d.arrows(c.X, c.Z, c.BX/bzmax(c), c.BZ/bzmax(c))
+    # d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
 
     ##############################################################################
 
