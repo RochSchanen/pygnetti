@@ -53,7 +53,7 @@ class coil:
         return
 
     # "define_geometry()" is used to compute all the loop positions
-    def define_geometry(self,
+    def set_geometry(self,
             radius = 10.0,  # radius [mm]
             height =  1.0,  # height [mm]
             turns  =  1.0,  # number of turns on the first layer (#0)
@@ -109,7 +109,7 @@ class coil:
     # calculated. However, the definition of the grid geometry is left to the
     # user. By convention, the grid is definied in the plan xOz. By convention,
     # matrices are labelled using upper case letters.
-    def define_grid(self,
+    def set_grid(self,
             xs,  # start x [mm]
             xe,  # stop  x [mm]
             xn,  # number of points
@@ -163,6 +163,11 @@ class coil:
             self.add_loop(r, h)
         return
 
+    def set_orign(self, x, y, z, u, v):
+        # this is done by redefining the grid coordinate
+        # and keeping the array points.
+        pass
+
 if __name__ == "__main__":
 
     from pslib import document
@@ -179,12 +184,18 @@ if __name__ == "__main__":
     # instantiate coil
     c = coil()
 
+    radius      = 15    # [mm]
+    # height = 
+    turns       = 5
+    layers      = 10
+    wiresize    = 1.0   # [mm]
+
     # setup coil geometry
-    c.define_geometry(
-        radius = 15, 
-        height = 5,
-        turns  = 5,
-        layers = 5)
+    c.set_geometry(
+        radius = radius, 
+        height = wiresize*turns,
+        turns  = turns,
+        layers = layers)
 
     d.rgbcolor(0.8, 0.1, 0.3)
     d.thickness(0.01)
@@ -211,11 +222,11 @@ if __name__ == "__main__":
 
     # first sub grid (starting at bore radius)
     ns = int(-radius/wd/pf/2)
-    ne = int(layers/2) - 1
+    ne = int(layers/2) - even(layers)
     np = int(turns/2) - even(turns)*0.5
 
     # setup grid geometry
-    c.define_grid(
+    c.set_grid(
         # min, max, points (x)
         radius + 2 * ns * wd*pf,
         radius + 2 * ne * wd*pf,
@@ -236,40 +247,42 @@ if __name__ == "__main__":
     d.thickness(0.1)
 
     # d.arrows(c.X, c.Z, c.BX, c.BZ)
-    d.arrows(c.X, c.Z, c.BX/bzmax(c), c.BZ/bzmax(c))
-    # d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
+    # d.arrows(c.X, c.Z, c.BX/bzmax(c), c.BZ/bzmax(c))
+    d.arrows(c.X, c.Z, c.BX*0, c.BZ/bzmax(c))
 
     ###########################################################################
 
-    # odd grid
-    ns = int(-radius/wd/pf/2-0.5)
-    ne = int(layers/2) - 1
-    np = int((turns-1)/2) - even((turns-1))*0.5
+    if layers>1:
 
-    # setup grid geometry
-    c.define_grid(
-        # min, max, points (x)
-        radius + 2 * (ns+0.5) * wd*pf,
-        radius + 2 * (ne+0.5) * wd*pf,
-        ne-ns + 1,
-        # min, max, points (z)
-        -np*wd,
-        +np*wd,
-        turns - 1)
+        # odd grid
+        ns = int(-radius/wd/pf/2-0.5)
+        ne = int(layers/2) - 1
+        np = int((turns-1)/2) - even((turns-1))*0.5
 
-    c.draw_grid(d)
-    # compute
-    c.computeCoil()
-    # setup arrow size and style
-    # d.define_arrow_style(1.0, 0.3)
-    d.define_arrow_style(0.4)
-    # scale field only
-    d.rgbcolor(0.1, 0.9, 0.3)
-    d.thickness(0.1)
+        # setup grid geometry
+        c.set_grid(
+            # min, max, points (x)
+            radius + 2 * (ns+0.5) * wd*pf,
+            radius + 2 * (ne+0.5) * wd*pf,
+            ne-ns + 1,
+            # min, max, points (z)
+            -np*wd,
+            +np*wd,
+            turns - 1)
 
-    # d.arrows(c.X, c.Z, c.BX, c.BZ)
-    d.arrows(c.X, c.Z, c.BX/bzmax(c), c.BZ/bzmax(c))
-    # d.arrows(c.X, c.Z, c.BX*0, c.BZ/5)
+        c.draw_grid(d)
+        # compute
+        c.computeCoil()
+        # setup arrow size and style
+        # d.define_arrow_style(1.0, 0.3)
+        d.define_arrow_style(0.4)
+        # scale field only
+        d.rgbcolor(0.1, 0.9, 0.3)
+        d.thickness(0.1)
+
+        # d.arrows(c.X, c.Z, c.BX, c.BZ)
+        # d.arrows(c.X, c.Z, c.BX/bzmax(c), c.BZ/bzmax(c))
+        d.arrows(c.X, c.Z, c.BX*0, c.BZ/bzmax(c))
 
     ##############################################################################
 
